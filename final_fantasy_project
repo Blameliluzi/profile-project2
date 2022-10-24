@@ -1,0 +1,762 @@
+import random as r
+
+import pygame as pg
+
+import text
+
+pg.init()
+
+
+# Set your frame rate with the clock class of pygame
+
+clock = pg.time.Clock()		# Lets us get started on establishing the frame rate
+
+
+fps = 60					# Var for initialization of the frames per second
+
+# Game Window
+
+bottom_panel = 150
+
+width = 800
+
+height = 400 + bottom_panel
+
+screen = pg.display.set_mode((width, height))
+
+pg.display.set_caption('Nate\'s Final Fantasy Game')
+
+# Define game variables
+
+current_fighter = 1
+
+total_fighters = 3
+
+action_cooldown = 0
+
+action_wait_time = 90
+
+attack = False
+
+potion = False
+
+potion_effect = 75
+
+clicked = False
+
+game_over = 0	# 1 = player_win, -1 = player_loss
+
+
+
+
+
+
+# Define fonts
+
+font = pg.font.SysFont('segoeprint', 26)
+
+
+
+# Define colors
+
+black = (0, 0, 0)
+
+red = (255, 0, 0)
+
+green = (0, 255, 0)
+
+
+
+# Load Images
+
+# Background Image
+
+background_img = pg.image.load('Background/background.png').convert_alpha()
+
+# Load Panel Image
+
+panel_img = pg.image.load('Icons/panel.png').convert_alpha()
+
+# Button images
+
+potion_img = pg.image.load('Icons/potion.png').convert_alpha()
+
+# Load restart button image
+
+restart_img = pg.image.load('Icons/restart.png').convert_alpha()
+
+# Load victory and defeat images
+
+victory_img = pg.image.load('Icons/victory.png').convert_alpha()
+
+defeat_img = pg.image.load('Icons/defeat.png').convert_alpha()
+
+# Load Sword Image
+
+sword_img = pg.image.load('Icons/sword.png').convert_alpha()
+
+
+
+
+# Function for drawing text
+
+def draw_text(text, font, text_col, x, y):
+
+	img = font.render(text, True, text_col)
+
+	screen.blit(img, (x, y))
+
+
+
+# Function for drawing background
+
+def draw_bg():
+
+    screen.blit(background_img, (0, 0))
+
+
+# Function for drawing panel
+
+def draw_panel():
+
+	# Draw panel rectangle
+
+	screen.blit(panel_img, (0, height - bottom_panel))
+
+	# Show knight stats
+
+	draw_text('{} HP: {}'.format(knight.name, knight.hp), font, black, 100, height - bottom_panel)
+
+	# Show Bandit stats
+
+	for count, i in enumerate(bandit_list):
+
+		# Show name and health
+
+		# This line of code utilizes the dual-functionality of enumeration to un-stack the bandit hps.
+
+		draw_text('{} HP: {}'.format(i.name, i.hp), font, red, 500, ((height - bottom_panel) + count * 60))
+
+# Fighter Class. This will be the inherited class that character classes
+
+# created after it will inherit. This is the base stats class that will not be actively
+
+# used for any purpose other than class inheritance.
+
+class Fighter():
+
+	def __init__(self, x, y, name, max_hp, strength, potions):
+
+
+		self.name = name
+
+		self.max_hp = max_hp 
+
+		self.hp = self.max_hp
+
+		self.strength = strength
+
+		self.start_potions = potions
+
+		self.potions = potions
+
+		self.alive = True
+
+		self.animation_list = []
+
+		self.frame_index = 0
+
+		self.action = 0	# 0: idle, 1: attack, 2: hurt, 3: dead
+
+		self.update_time = pg.time.get_ticks()
+
+
+
+
+		
+		
+		# Load idle imaages
+
+		temp_list = []
+
+		for i in range(8):
+
+			img = pg.image.load('{}/Idle/{}.png'.format(self.name, i))
+
+			img = pg.transform.scale(img, (img.get_width() * 3, img.get_height() * 3) )
+		 
+			temp_list.append(img)
+
+		self.animation_list.append(temp_list)
+
+
+		# Load attack imaages
+
+		temp_list = []
+
+		for i in range(8):
+
+			img = pg.image.load('{}/Attack/{}.png'.format(self.name, i))
+
+			img = pg.transform.scale(img, (img.get_width() * 3, img.get_height() * 3) )
+		 
+			temp_list.append(img)
+
+		self.animation_list.append(temp_list)
+
+
+
+		# Load Hurt imaages
+
+		temp_list = []
+
+		for i in range(3):
+
+			img = pg.image.load('{}/Hurt/{}.png'.format(self.name, i))
+
+			img = pg.transform.scale(img, (img.get_width() * 3, img.get_height() * 3) )
+		 
+			temp_list.append(img)
+
+		self.animation_list.append(temp_list)
+
+
+
+		# Load Death imaages
+
+		temp_list = []
+
+		for i in range(10):
+
+			img = pg.image.load('{}/Death/{}.png'.format(self.name, i))
+
+			img = pg.transform.scale(img, (img.get_width() * 3, img.get_height() * 3) )
+		 
+			temp_list.append(img)
+
+		self.animation_list.append(temp_list)
+
+
+
+
+		
+
+		self.image = self.animation_list[self.action][self.frame_index]
+
+		self.rect = self.image.get_rect()    # Hidden action. Will make the image able to be moved to the programmer's liking.
+
+		self.rect.center = (x, y)
+
+
+
+
+	def draw(self, hp):
+
+		# These will be two rectangles stacked on top of each other: a red one and a green one.
+
+		# when each char takes damage, the green bar will get smaller. This will give the appearance
+
+		# of the char's health decreasing.
+
+		pg.draw.rect(screen, red, self.x, self.y,150, 20)
+
+
+	def draw(self):
+
+		screen.blit(self.image, self.rect)
+
+
+
+	
+	def update(self):
+
+		animation_cooldown = 100
+
+		# Handle animation
+
+		# Update image
+
+		self.image = self.animation_list[self.action][self.frame_index]
+		
+		# Check if enough time has passed since the last update
+
+		if pg.time.get_ticks() - self.update_time > animation_cooldown:
+
+			self.update_time = pg.time.get_ticks()
+
+
+			self.frame_index += 1
+
+		# If the animation has run out, reset
+
+		if self.frame_index >= len(self.animation_list[self.action]):
+			
+			if self.action == 3:
+
+				self.frame_index = len(self.animation_list[self.action]) - 1		# Give us the final frame in the animation
+
+			else:
+			
+				self.idle()
+
+	# Method to reset the char to idle after every action
+
+
+	def idle(self):
+
+		self.action = 0		# Makes the attack animation invoke
+
+		self.frame_index = 0	# Resets the frame index to idle/0
+
+		self.update_time = pg.time.get_ticks()	# Record the current time so the animation is done correctly
+
+	
+
+	def attack(self, target):
+		# deal dmg to enemy
+
+		rand = r.randint(-(self.strength / 5), ((self.strength / 5) * 2))
+
+		dmg = self.strength + rand
+
+		target.hp -= dmg
+
+		# run enemy hurt animation
+
+		target.hurt()
+
+		# Check if target has died
+
+		if target.hp < 1:
+
+			target.hp = 0
+
+			target.alive = False
+
+			target.die()
+
+		damage_text = DamageText(target.rect.centerx, target.rect.y, str(dmg), red)
+
+		damage_text_group.add(damage_text)
+
+
+		# Set vars to attack animation
+
+		self.action = 1		# Makes the attack animation invoke
+
+		self.frame_index = 0	# Resets the frame index to idle/0
+
+		self.update_time = pg.time.get_ticks()	# Record the current time so the animation is done correctly
+
+	# Hurt method
+
+	def hurt(self):
+
+		self.action = 2
+
+		self.frame_index = 0
+
+		self.update_time = pg.time.get_ticks()
+
+	
+	# Die method
+
+	def die(self):
+
+		self.action = 3
+
+		self.update_time = pg.time.get_ticks()
+
+	
+	def reset(self):
+
+		self.alive = True
+
+		self.potions = self.start_potions
+
+		self.hp = self.max_hp
+
+		self.frame_index = 0
+
+		self.action = 0
+
+		self.update_time = pg.time.get_ticks()
+
+
+class HealthBar():
+
+	def __init__(self, x, y, hp, max_hp):
+
+		self.x = x
+
+		self.y = y
+
+		self.hp = hp
+
+		self.max_hp = max_hp
+
+	def draw(self, hp):
+
+		# update with new health
+
+		self.hp = hp
+
+		# Calculate health ratio
+
+		ratio = self.hp / self.max_hp
+
+		pg.draw.rect(screen, red, (self.x, self.y, 150, 20))
+
+		pg.draw.rect(screen, green, (self.x, self.y, 150 * ratio, 20))
+
+
+class DamageText(pg.sprite.Sprite):
+
+	def __init__(self, x, y, damage, color):
+
+		pg.sprite.Sprite.__init__(self)	# Inherit the functionality of the Sprite class within the sprite module
+
+		self.image = font.render(damage, True, color)
+
+		self.rect = self.image.get_rect()	# Refresher: allows us to edit the position of what's on the screen whenever we may need to
+
+		self.rect.center = (x, y)		# Says what the current position is
+	
+		self.counter = 0
+
+	def update(self):
+
+		# Move damge text up and delete at certain point
+
+		self.rect.y -= 2	# Remember that 0 is declared the top of the y axis within the window. Any positive number is going towards the bottom of the window.
+
+		self.counter += 1
+
+		if self.counter > 40:
+
+			self.kill()		# This will make the text dissappear
+
+
+
+damage_text_group = pg.sprite.Group()	# Similar to list object: allows us to create instances of DamgeText and add it to the group
+
+
+
+
+
+
+
+# Instances of the Fighter Class
+
+knight = Fighter(200, 260, 'Knight', 276, 75, 3)
+
+bandit1 = Fighter(550, 270, 'Bandit', 150, 35, 2 )
+
+bandit2 = Fighter(700, 270, 'Bandit', 150, 35, 2 )
+
+bandit_list = []
+
+bandit_list.append(bandit1)
+
+bandit_list.append(bandit2)
+
+
+
+# Instances of the HealthBar Class(Empty)
+
+knight_health_bar = HealthBar(100, (height - bottom_panel) + 40, knight.hp, knight.max_hp)
+
+bandit1_health_bar = HealthBar(550, (height - bottom_panel) + 40, bandit1.hp, bandit1.max_hp)
+
+bandit2_health_bar = HealthBar(550, (height - bottom_panel) + 100, bandit2.hp, bandit2.max_hp)
+
+
+
+# Instances of the HealthBar Class(Full)
+knight_health_bar2 = HealthBar(100, (height - bottom_panel) + 40, knight.hp, knight.max_hp)
+
+bandit1_health_bar2 = HealthBar(550, (height - bottom_panel) + 40, bandit1.hp, bandit1.max_hp)
+
+bandit2_health_bar2 = HealthBar(550, (height - bottom_panel) + 100, bandit2.hp, bandit2.max_hp)
+
+
+# Create buttons
+
+potion_button = text.Button(screen, 100, height - bottom_panel + 70, potion_img, 64, 64)
+
+restart_button = text.Button(screen, 330, 120, restart_img, 120, 30)
+
+# Game Loop
+
+run = True
+
+while run:
+
+
+	clock.tick(fps) # Fixes processing rate of screen to fps frames per second
+    
+    # Draw background
+
+	draw_bg()
+
+    # Draw panel
+
+	draw_panel()
+
+	knight_health_bar.draw(knight.hp)
+
+	bandit1_health_bar.draw(bandit1.hp)
+
+	bandit2_health_bar.draw(bandit2.hp)
+
+
+    # Draw fighters
+
+	knight.update()
+
+	knight.draw()
+
+	# Draw bandits
+
+	for bandits in bandit_list:
+
+		bandits.update()
+
+		bandits.draw()
+
+	# Draw damage text
+
+	damage_text_group.update()
+
+	damage_text_group.draw(screen)	# .draw and .update are already within the Sprite class.
+
+	# Control player actions
+
+	# Reset action vars
+	
+	attack = False
+	
+	potion = False
+
+	target = None
+
+	# Make sure mouse is visible
+
+	pg.mouse.set_visible(True)
+
+	pos = pg.mouse.get_pos()	# Inquire where the mouse is
+
+	for count, bandit in enumerate(bandit_list):
+
+		if bandit.rect.collidepoint(pos):
+
+			# hide mouse
+
+			pg.mouse.set_visible(False)
+
+			# Show sword
+
+			screen.blit(sword_img, pos)
+
+			if clicked == True and bandit.alive == True:	# Stops us from being able to repeatedly kill bandits
+
+				attack = True
+
+				target = bandit_list[count]
+
+	if potion_button.draw():	# Makes program look for feedback/mouseclicks
+
+		potion = True
+
+	# show num of potions remaining
+
+	draw_text(str(knight.potions), font, red, 150, ((height - bottom_panel) + 70))
+
+
+	if game_over == 0:	# As long as the player hasn't won or lost: run the rest of the loop.
+		# Player action
+
+		if knight.alive == True:
+
+			if current_fighter == 1:
+
+				action_cooldown += 1
+
+				if action_cooldown >= action_wait_time:
+					# look for player action
+					# attack
+
+					if attack == True and target != None:
+
+						knight.attack(target)
+
+						current_fighter += 1
+
+						action_cooldown = 0
+
+					
+					# Potion
+
+					if potion == True:
+
+						if knight.potions > 0:
+
+							# Check if the potion would heal the player beyond max health
+
+							if knight.max_hp - knight.hp > potion_effect:
+
+
+								heal_amount = potion_effect
+							else:
+
+								heal_amount = knight.max_hp - knight.hp
+
+							knight.hp += heal_amount
+
+							damage_text = DamageText(knight.rect.centerx, knight.rect.y, str(heal_amount), green)
+
+							damage_text_group.add(damage_text)
+
+							knight.potions -= 1
+
+							current_fighter += 1
+
+							action_cooldown = 0
+
+		else:
+
+			game_over = -1		# Player_loss
+
+
+
+
+		# Enemy Action
+
+		for count, bandit in enumerate(bandit_list):
+
+			
+
+			if current_fighter == 2 + count:
+
+				if bandit.alive == True:
+
+					action_cooldown += 1
+
+					if action_cooldown >= action_wait_time:
+						# check if bandit needs to heal first
+
+						if (bandit.hp / bandit.max_hp) < 0.5 and bandit.potions > 0:
+
+							if bandit.max_hp - bandit.hp > potion_effect:
+
+
+								heal_amount = potion_effect
+							else:
+
+								heal_amount = bandit.max_hp - bandit.hp
+
+							bandit.hp += heal_amount
+
+							damage_text = DamageText(bandit.rect.centerx, bandit.rect.y, str(heal_amount), green)
+
+							damage_text_group.add(damage_text)
+
+							bandit.potions -= 1
+
+							current_fighter += 1
+							
+							action_cooldown = 0
+
+
+						# attack
+
+						else:
+							bandit.attack(knight)
+
+							current_fighter += 1
+
+							action_cooldown = 0
+
+				else:
+
+					current_fighter += 1
+
+			if current_fighter > total_fighters:
+
+				current_fighter = 1
+
+		# Check if all bandits are dead
+
+		alive_bandits = 0
+
+		for bandit in bandit_list:
+
+			if bandit.alive == True:
+
+				alive_bandits += 1
+
+		if alive_bandits == 0:
+
+			game_over = 1		# All bandits are dead, player wins
+
+	if game_over != 0:
+
+		if game_over == 1:
+
+			screen.blit(victory_img, (250, 50))
+
+		if game_over == -1:
+
+			screen.blit(defeat_img, (250, 50))
+
+		if restart_button.draw():
+
+			knight.reset()
+
+			for bandit in bandit_list:
+
+				bandit.reset()
+
+			current_fighter = 1
+
+			action_cooldown = 0
+
+			game_over = 0
+
+
+	# Key events
+
+	for event in pg.event.get():
+
+		if event.type == pg.QUIT:
+
+			run = False
+
+		if event.type == pg.MOUSEBUTTONDOWN:
+
+			clicked = True
+		
+		else:
+
+			clicked = False
+        
+
+
+		if event.type == pg.KEYDOWN:
+
+			if event.key == pg.K_ESCAPE:
+
+				run = False
+
+	# if all fighters have had a turn then reset
+
+	if current_fighter > total_fighters:
+
+		current_fighter = 1
+
+
+	pg.display.update()
+
+
+
+pg.quit()
